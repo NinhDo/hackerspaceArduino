@@ -11,6 +11,9 @@ const boolean DONTLISTEN = 1;
 // FPS
 unsigned long currentFrame = 0;
 
+// Buzzer
+uint8_t buzzer = 13;
+
 // RESTARTBUTTON
 uint8_t restartButton = 5;
 boolean restartButtonPressed = 0;
@@ -25,7 +28,7 @@ uint8_t yPort = A1;
 uint8_t button1 = 9;
 boolean buttonPress1 = 0;
 
-uint8_t x = 8;
+uint8_t x = 7;
 uint8_t y = 7;
 int aX;
 int aY;
@@ -56,10 +59,10 @@ unsigned long timeSinceRestart = 1500;
 
 // SNAKE
 int snake[256][2];
-int length = 3;
+int length = 50;
 int sx = -1;
 int sy = -1;
-uint8_t speed = 100;
+uint8_t speed = 10;
 
 int apple[] = { -1, -1};
 
@@ -70,8 +73,9 @@ void setup() {
   pinMode(xPort, INPUT);
   pinMode(yPort, INPUT);
   pinMode(button1, INPUT);
+  pinMode(buzzer, OUTPUT);
   pinMode(restartButton, INPUT);
-  sendToSlave(0);
+
   restartGame();
 }
 
@@ -94,7 +98,8 @@ void loop() {
     direction = DOWN;
   }
   if (running) {
-    if (currentFrame % speed == 0) updatePosition();
+    //if (currentFrame % speed == 0) updatePosition();
+    updatePosition();
   }
 
   if(restartButtonPressed == 1 && (timeSinceRestart > 1000 || !running)) {
@@ -106,23 +111,29 @@ void loop() {
 }
 
 void restartGame() {
-  // SEND GAME START
-  sendToSlave(0);
   timeSinceRestart = 0;
   direction =1;
-  for (int row = 0; row < 16; row++) {
-    for (int col = 0; col < 16; col++) {
+  int row = 15;
+  int col = 15;
+  int i = 255;
+  int j = length - 1;
+  do {
+    do {
       board[row][col] = 0;
-    }
-  }
-  for (int i = 0; i < 256; i++) {
+      col--;
+    } while (col >= 0);
+    row--;
+  } while (row >= 0);
+  do {
     snake[i][0] = -1;
     snake[i][1] = -1;
-  }
-  for (int i = 0; i < length; i++) {
-    snake[i][0] = 8;
-    snake[i][1] = 7;
-  }
+    i--;
+  } while (i >= 0);
+  do {
+    snake[j][0] = 8;
+    snake[j][1] = 7;
+    j--;
+  } while (j >= 0);
   x = 8;
   y = 7;
   //refreshMatrix();
@@ -142,8 +153,6 @@ void updatePosition() {
   }
   if (x < 0 || x > 15 || y < 0 || y > 15) {
     running = false;
-    // SEND GAME OVER
-    sendToSlave(2);
     if (direction == UP) {
       y++;
     } else if (direction == DOWN) {
@@ -158,66 +167,86 @@ void updatePosition() {
 }
 
 void updateSnakePositions() {
-  for (int segment = 1; segment < length; segment++) {
-    if (snake[length - segment][0] != snake[length - 1 - segment][0]) 
-      snake[length - segment][0] = snake[length - 1 - segment][0];
-    if (snake[length - segment][1] != snake[length - 1 - segment][1]) 
-      snake[length - segment][1] = snake[length - 1 - segment][1];
-  }
+  int tempX, tempY;
+  int segment = length - 1;
+  do {
+    //if (snake[length - segment][0] != snake[length - 1 - segment][0]) 
+      snake[segment][0] = snake[segment - 1][0];
+    //if (snake[length - segment][1] != snake[length - 1 - segment][1]) 
+      snake[segment][1] = snake[segment - 1][1];
+      segment--;
+  } while(segment > 0);
   snake[0][0] = x;
   snake[0][1] = y;
 }
 
 void wipeBoard() {
-  for (int row = 0; row < 16; row++) {
-    for (int col = 0; col < 16; col++) {
+  int row = 15;
+  int col = 15;
+  do {
+    do {
       board[row][col] = 0;
-    }
-  }
+      col--;
+    } while (col >= 0);
+    row--;
+  } while (row >= 0);
 }
 
 void refreshSnake() {
   wipeBoard();
-  for (int segment = 0; segment < length; segment++) {
+  int segment = length - 1;
+  int row = 15;
+  int col = 15;
+  do {
     sx = snake[segment][0];
     sy = snake[segment][1];
     if(sx < 0 || sy < 0 || sx > 15 || sy > 15) {
       continue;
     }
     board[sy][sx] = 1;
-  }
+    segment--;
+  } while (segment >= 0);
 
-  for (int row = 0; row < 16; row++) {
-    for (int col = 0; col < 16; col++) {
+  do {
+    do {
       if (board[row][col] == 0) continue;
       (col < 8) ? colLeft(col, board[row][col]) : colRight(col % 8, board[row][col]);
-    } 
+      col--;
+    } while (col >= 0);
+
+
     (row < 8) ? rowTop(row, RON) : rowBot(row % 8 , RON);
     // Sets LED ON
     //digitalWrite(latchpin, LISTEN);
     PORTB &= ~_BV(PB4);
+    //(sx < 8) ? colLeft(sx, CON) : colRight(sx % 8, CON);
+    //(sy < 8) ? rowTop(sy, RON) : rowBot(sy % 8 , RON);
     shiftAll();
     //digitalWrite(latchpin, DONTLISTEN);
     PORTB |= _BV(PB4);
     // Sets all LEDs OFF
     //digitalWrite(latchpin, LISTEN);
     PORTB &= ~_BV(PB4);
-    for (int i = 0; i < 8; i++) {
+    int i = 7;
+    do {
       rowTop(i, ROFF);
       rowBot(i, ROFF);
       colLeft(i, COFF);
       colRight(i, COFF);
-    }
+      i--;
+    } while (i >= 0);
     shiftAll();
     //digitalWrite(latchpin, DONTLISTEN);
     PORTB |= _BV(PB4);
-  }
+    row--;
+  } while (row >= 0);
   currentFrame++;
   timeSinceRestart++;
 }
 
 
 void refreshMatrix() {
+  int i = 7;
   // Sets LED ON
   //digitalWrite(latchpin, LISTEN);
   PORTB &= ~_BV(PB4);
@@ -229,12 +258,13 @@ void refreshMatrix() {
   // Sets all LEDs OFF
   //digitalWrite(latchpin, LISTEN);
   PORTB &= ~_BV(PB4);
-  for (int i = 0; i < 8; i++) {
+  do {
     rowTop(i, ROFF);
     rowBot(i, ROFF);
     colLeft(i, COFF);
     colRight(i, COFF);
-  }
+    i--;
+  } while (i >= 0);
   shiftAll();
   //digitalWrite(latchpin, DONTLISTEN);
   PORTB |= _BV(PB4);
@@ -268,33 +298,35 @@ void shiftAll() {
 
 
 void shiftOut(int myDataPin, int myClockPin, byte myDataOut) {
+  int i = 7;
+  int pinState;
   pinMode(myClockPin, OUTPUT);
   pinMode(myDataPin, OUTPUT);
-  //int pinState;
 
   //digitalWrite(myDataPin, 0);
   //digitalWrite(myClockPin, 0);
   PORTD &= ~_BV(PD7);
   PORTE &= ~_BV(PE6);
 
-  for (int i = 7; i >= 0; i--) {
+  do {
     //digitalWrite(myClockPin, 0);
     PORTE &= ~_BV(PE6);
 
-    if (myDataOut & (1 << i) ) {
+    if ( myDataOut & (1 << i) ) {
       //pinState = 1;
       PORTD |= _BV(PD7);
     }
     else {
       //pinState = 0;
-      PORTD &= ~_BV(PD7);
+     PORTD &= ~_BV(PD7);
     }
     //digitalWrite(myDataPin, pinState);
     //digitalWrite(myClockPin, 1);
     //digitalWrite(myDataPin, 0);
     PORTE |= _BV(PE6);
     PORTD &= ~_BV(PD7);
-  }
+    i--;
+  } while (i >= 0);
 
   //stop shifting
   //digitalWrite(myClockPin, 0);
