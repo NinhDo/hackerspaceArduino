@@ -341,7 +341,7 @@ void shiftOut(int myDataPin, int myClockPin, byte myDataOut) {
   PORTE &= ~_BV(PE6);
 }
 
-void sendToSlave(int x) {
+void sendToSlave(byte x) {
   Serial.println(x);
   Wire.beginTransmission(8);
   Wire.write(x);
