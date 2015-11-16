@@ -32,6 +32,7 @@ int aY;
 
 // 0, 1, 2, 3; UP, DOWN, LEFT, RIGHT
 uint8_t direction = 1;
+uint8_t movingDirection = 1;
 const uint8_t UP = 0;
 const uint8_t DOWN = 1;
 const uint8_t LEFT = 2;
@@ -56,16 +57,18 @@ unsigned long timeSinceRestart = 1500;
 
 // SNAKE
 int snake[256][2];
-int length = 3;
+int length = 100;
+int defaultLength = 100;
 int sx = -1;
 int sy = -1;
-uint8_t speed = 100;
-
+uint8_t speed = 25;
+  
 int apple[] = { -1, -1};
 
 // SETUP
 void setup() {
   Wire.begin();
+  Serial.begin(9600);
   pinMode(latchpin, OUTPUT);
   pinMode(xPort, INPUT);
   pinMode(yPort, INPUT);
@@ -84,13 +87,13 @@ void loop() {
   restartButtonPressed = digitalRead(restartButton);
 
   // CHANGE DIRECTION
-  if (aX < lowDead && direction != LEFT) {
+  if (aX < lowDead && direction != LEFT && movingDirection != LEFT) {
     direction = RIGHT;
-  } else if (aX > highDead && direction != RIGHT) {
+  } else if (aX > highDead && direction != RIGHT && movingDirection != RIGHT) {
     direction =  LEFT;
-  } else if (aY < lowDead && direction != DOWN) {
+  } else if (aY < lowDead && direction != DOWN && movingDirection != DOWN) {
     direction = UP;
-  } else if (aY > highDead && direction != UP) {
+  } else if (aY > highDead && direction != UP && movingDirection != UP) {
     direction = DOWN;
   }
   if (running) {
@@ -109,6 +112,7 @@ void restartGame() {
   // SEND GAME START
   sendToSlave(0);
   timeSinceRestart = 0;
+  length = defaultLength;
   direction =1;
   for (int row = 0; row < 16; row++) {
     for (int col = 0; col < 16; col++) {
@@ -125,6 +129,7 @@ void restartGame() {
   }
   x = 8;
   y = 7;
+  placeApple();
   //refreshMatrix();
   refreshSnake();
   running = true;
@@ -154,10 +159,17 @@ void updatePosition() {
       x--;
     }
   }
+  movingDirection = direction;
   updateSnakePositions();
 }
 
 void updateSnakePositions() {
+  if(apple[0] == x && apple[1] == y) {
+    length++;
+    apple[0] = -1;
+    apple[1] = -1;
+    placeApple();
+  }
   for (int segment = 1; segment < length; segment++) {
     if (snake[length - segment][0] != snake[length - 1 - segment][0]) 
       snake[length - segment][0] = snake[length - 1 - segment][0];
@@ -166,6 +178,33 @@ void updateSnakePositions() {
   }
   snake[0][0] = x;
   snake[0][1] = y;
+  
+  for(int segment = 1; segment < length; segment++) {
+    if(snake[0][0] == snake[segment][0] && snake[0][1] == snake[segment][1]) {
+      running = false;
+    }
+  }
+}
+
+void placeApple() {
+  boolean placedApple = false;
+  int rX = -1;
+  int rY = -1;
+  while (true) {
+    placedApple = true;
+    rX = random(16);
+    rY = random(16);
+    for(int segment = 0; segment < length; segment++) {
+      if(snake[segment][0] == rX && snake[segment][1] == rY) {
+        placedApple = false;
+        continue;
+      }
+    }
+    if(placedApple)
+      break;
+  }
+  apple[0] = rX;
+  apple[1] = rY;
 }
 
 void wipeBoard() {
@@ -186,6 +225,7 @@ void refreshSnake() {
     }
     board[sy][sx] = 1;
   }
+  board[apple[1]][apple[0]] = 1;
 
   for (int row = 0; row < 16; row++) {
     for (int col = 0; col < 16; col++) {
@@ -302,6 +342,7 @@ void shiftOut(int myDataPin, int myClockPin, byte myDataOut) {
 }
 
 void sendToSlave(int x) {
+  Serial.println(x);
   Wire.beginTransmission(8);
   Wire.write(x);
   Wire.endTransmission();
