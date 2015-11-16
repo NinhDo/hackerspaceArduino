@@ -3,6 +3,9 @@
 LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
 int i = 1;
 unsigned int score = 0;
+String snake1 = "_______.-===-.____.---.";//line0
+String snake2 = "  '-.___.---.______.--,'"; //line1
+
 
 void setup() {
   Wire.begin(8);
@@ -20,22 +23,33 @@ void setup() {
 
 void loop() {
   while (i == 1){
-    delay(5000);
+    delay(1000);
     lcd.clear();
-    //lcd.autoscroll();
-    lcd.setCursor(0,0);
-    lcd.print("_,.-'`_ o `;__,");
-    lcd.setCursor(0,1);
-    lcd.print(" _.-'` '---'  '");
-    i = 0;
+   
+    
+  lcd.setCursor(16,0);
+  lcd.print(snake1);
+  lcd.setCursor(16,1);
+  lcd.print(snake2);
+
+  for (int scrollCounter = 0; scrollCounter < 38; scrollCounter++) 
+  { 
+
+    lcd.scrollDisplayRight(); 
+
+    delay(250);
   }
-      lcd.clear();
+
+  lcd.clear();
+
+    /*  lcd.clear();
       lcd.setCursor(0, 0);
       lcd.print("Score: ");
       lcd.print(score);
-      delay(500);
+      delay(500);*/
       
     }
+}
 void receiveEvent(int howMany) {
   int x = Wire.read();
   Serial.println("HER ER NOE: " + x);
@@ -98,14 +112,5 @@ void receiveEvent(int howMany) {
           lcd.print("?????");
           break;
       }
-}
-
-boolean readyToCompare(uint8_t lydsekvensAlfa[],uint8_t lydsekvensBeta[]){
-    if ((lydsekvensAlfa[0] == lydsekvensBeta[0])&&(lydsekvensAlfa[1] == lydsekvensBeta[1])&&(lydsekvensAlfa[2] == lydsekvensBeta[2])){
-        return true;
-      }
-    else {
-      return false;
-    }
 }
 
