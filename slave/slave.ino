@@ -1,32 +1,36 @@
 #include <LiquidCrystal.h>
 #include <Wire.h>
+
 LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
-int i = 1;
-unsigned int score = 0;
+
 String snake1 = "_______.-===-.____.---.";//line0
 String snake2 = "  '-.___.---.______.--,'"; //line1
+
+unsigned int score = 0;
+boolean hasBegun = false;
+boolean running = false;
+boolean gameStartNotRun = true;
+boolean lost = false;
+uint8_t tempScore = 50;
+unsigned long timeSinceLastApple = 0;
+unsigned long timeSincePointReduction = 0;
 
 
 void setup() {
   Wire.begin(8);
   Wire.onReceive(receiveEvent);
+  pinMode(6,OUTPUT);
   lcd.begin(16, 2);
   lcd.print("Andre");
-  lcd.write(0xE3);
   lcd.print(" og Ninh:");
   lcd.setCursor(0, 1);
   lcd.print("SNAKE!");
-  pinMode(6,OUTPUT);
-  int test = 0;
-  Serial.begin(9600);
 }
 
 void loop() {
-  while (i == 1){
-    delay(1000);
-    lcd.clear();
-   
-    
+  if(!hasBegun){
+    delay(2500);
+    lcd.clear(); 
     lcd.setCursor(16,0);
     lcd.print(snake1);
     lcd.setCursor(16,1);
@@ -36,86 +40,94 @@ void loop() {
       lcd.scrollDisplayRight(); 
       delay(250);
     }
-
     lcd.clear();
-    /*  lcd.clear();
-      lcd.setCursor(0, 0);
-      lcd.print("Score: ");
-      lcd.print(score);
-      delay(500);*/  
+  } 
+  if(!running && gameStartNotRun) {
+    gameStartNotRun = false;
+    startGame();
   }
+  if(running) {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Score: ");
+    lcd.print(score);
+    if(millis() - timeSinceLastApple > 1500) {
+      if(millis() - timeSincePointReduction > 1000) {
+        timeSincePointReduction = millis();
+        if(tempScore > 0) {
+          tempScore -= 5;
+        }
+        if(tempScore < 0) {
+          tempScore = 0;
+        }
+      }
+    }
+  }
+  if(lost) {
+    lcd.scrollDisplayLeft();
+  }
+  delay(250);
 }
 
 void receiveEvent(int howMany) {
   int x = Wire.read();
-  int appleTimer;
-  int appleTimer2;
-  int tempScore = 50;
-  i = 1;
+  Serial.println("GOT SUM: " + x);
   lcd.clear();
   lcd.setCursor(0,0);
-  Serial.println(x);
   switch (x) {
     case 0:
-      lcd.print("Game start:");
-      delay(2000);
+      hasBegun = true;
+      gameStartNotRun = true;
       break;
     case 1:
-      tempScore = 50;
-      appleTimer= millis();
-      appleTimer2= millis();
-      while (appleTimer > 10000){
-        if(millis()-appleTimer2 > 1000){
-          tempScore = tempScore-5;
-          appleTimer2 =millis();
-        }
-        if(x==1){
-          break;
-        }
-      }
-      score = score+tempScore;
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("Score: ");
-      lcd.print(score);
+      score += tempScore;
+      timeSinceLastApple = millis();
       break;
 
-
     case 2:
-      lcd.print("GAME OVER");
+      tempScore = 50;
       break;
 
     case 3:
-      lcd.print("Outlook good");
+      running = false;
+      lost = true;
+      lcd.print("GAME OVER");
+      lcd.setCursor(0, 1);
+      lcd.print("Final Score: ");
+      lcd.print(score);
       break;
 
-    case 4:
-      lcd.print("Unsure");
-      break;
-
-    case 5:
-      lcd.print("Ask again");
-      break;
-
-    case 6:
-      lcd.print("Doubtful");
-      break;
-
-    case 7:
-      lcd.print("No");
-      break;
     default:
       lcd.print("?????");
       break;
   }
 }
 
-boolean readyToCompare(uint8_t lydsekvensAlfa[],uint8_t lydsekvensBeta[]){
-    if ((lydsekvensAlfa[0] == lydsekvensBeta[0])&&(lydsekvensAlfa[1] == lydsekvensBeta[1])&&(lydsekvensAlfa[2] == lydsekvensBeta[2])){
-        return true;
-      }
-    else {
-      return false;
-    }
+void startGame() {
+  score = 0;
+  tempScore = 50;
+  lost = false;
+  hasBegun = true;
+  unsigned long timeSinceLastApple = millis();
+  unsigned long timeSincePointReduction = millis();
+  delay(500);
+  lcd.print("Game Start!");
+  delay(2000);
+  lcd.clear();
+  lcd.print("3");
+  delay(1000);
+  lcd.clear();
+  lcd.print("2");
+  delay(1000);
+  lcd.clear();
+  lcd.print("1");
+  delay(1000);
+  sendToMaster(0);
+  running = true; 
 }
 
+void sendToMaster(byte x) {
+  Wire.beginTransmission(7);
+  Wire.write(x);
+  Wire.endTransmission();
+}

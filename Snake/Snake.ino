@@ -52,13 +52,13 @@ boolean board[16][16];
 
 
 // GAME STUFF
-boolean running  = true;
-unsigned long timeSinceRestart = 1500;
+boolean running  = false;
+unsigned long timeSinceRestart = 0;
 
 // SNAKE
 int snake[256][2];
-int length = 100;
-int defaultLength = 100;
+int length = 3;
+int defaultLength = 3;
 int sx = -1;
 int sy = -1;
 uint8_t speed = 25;
@@ -67,14 +67,13 @@ int apple[] = { -1, -1};
 
 // SETUP
 void setup() {
-  Wire.begin();
-  Serial.begin(9600);
+  Wire.begin(7);
+  Wire.onReceive(receiveEvent);
   pinMode(latchpin, OUTPUT);
   pinMode(xPort, INPUT);
   pinMode(yPort, INPUT);
   pinMode(button1, INPUT);
   pinMode(restartButton, INPUT);
-  sendToSlave(0);
   restartGame();
 }
 
@@ -100,7 +99,7 @@ void loop() {
     if (currentFrame % speed == 0) updatePosition();
   }
 
-  if(restartButtonPressed == 1 && (timeSinceRestart > 1000 || !running)) {
+  if(restartButtonPressed == 1 && (millis() - timeSinceRestart > 1000)) {
     restartGame();
   }
 
@@ -110,8 +109,7 @@ void loop() {
 
 void restartGame() {
   // SEND GAME START
-  sendToSlave(0);
-  timeSinceRestart = 0;
+  timeSinceRestart = millis();
   length = defaultLength;
   direction =1;
   for (int row = 0; row < 16; row++) {
@@ -132,7 +130,8 @@ void restartGame() {
   placeApple();
   //refreshMatrix();
   refreshSnake();
-  running = true;
+  sendToSlave(0);
+  running = false;
 }
 
 void updatePosition() {
@@ -148,7 +147,7 @@ void updatePosition() {
   if (x < 0 || x > 15 || y < 0 || y > 15) {
     running = false;
     // SEND GAME OVER
-    sendToSlave(2);
+    sendToSlave(3);
     if (direction == UP) {
       y++;
     } else if (direction == DOWN) {
@@ -164,8 +163,9 @@ void updatePosition() {
 }
 
 void updateSnakePositions() {
-  if(apple[0] == x && apple[1] == y) {
+  if (apple[0] == x && apple[1] == y) {
     length++;
+    sendToSlave(1);
     apple[0] = -1;
     apple[1] = -1;
     placeApple();
@@ -182,6 +182,7 @@ void updateSnakePositions() {
   for(int segment = 1; segment < length; segment++) {
     if(snake[0][0] == snake[segment][0] && snake[0][1] == snake[segment][1]) {
       running = false;
+      sendToSlave(3);
     }
   }
 }
@@ -205,6 +206,9 @@ void placeApple() {
   }
   apple[0] = rX;
   apple[1] = rY;
+  if(running){
+    sendToSlave(2);
+  }
 }
 
 void wipeBoard() {
@@ -253,7 +257,6 @@ void refreshSnake() {
     PORTB |= _BV(PB4);
   }
   currentFrame++;
-  timeSinceRestart++;
 }
 
 
@@ -279,7 +282,6 @@ void refreshMatrix() {
   //digitalWrite(latchpin, DONTLISTEN);
   PORTB |= _BV(PB4);
   currentFrame++;
-  timeSinceRestart++;
 }
 
 // STUFF FOR SHIFT REGISTERS
@@ -341,9 +343,15 @@ void shiftOut(int myDataPin, int myClockPin, byte myDataOut) {
   PORTE &= ~_BV(PE6);
 }
 
-void sendToSlave(int x) {
-  Serial.println(x);
+void sendToSlave(byte x) {
   Wire.beginTransmission(8);
   Wire.write(x);
   Wire.endTransmission();
+}
+
+void receiveEvent(int howMany) {
+  int x = Wire.read();
+  if(x == 0) {
+    running = true;
+  }
 }
