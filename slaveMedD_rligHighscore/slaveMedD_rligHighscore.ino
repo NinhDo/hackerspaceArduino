@@ -18,6 +18,7 @@ unsigned long timeSinceLastApple = 0;
 unsigned long timeSincePointReduction = 0;
 int i = 0;
 int a = 0;
+byte scoreWriter[255];
 
 void setup() {
   Wire.begin(8);
@@ -174,13 +175,31 @@ boolean checkHighScore() {
 }
 
 int getHighScore() {
-    highscore = EEPROM.read(0);
+  highscore = 0;
+  int address = 0;
+  while (address != 0){
+   highscore += EEPROM.read(address);
+   address = address + 1;
+   if (address == EEPROM.length()) {
+    address = 0;
+  }
     return(highscore);
+  }
 }
 
 void setHighScore(){
   highscore = score;
-  EEPROM.write(0, highscore); //write highscore to eeprom
+  int r = 0;
+  while (score>255){
+    score = score-255;
+    r++;
+    scoreWriter[r] = 255;
+  }
+  scoreWriter[r] = score;
+  while (r > 0){
+  EEPROM.write(scoreWriter[r], highscore); //write highscore to eeprom
+  r--;
+  }
 }
 
 void resetAll() {
